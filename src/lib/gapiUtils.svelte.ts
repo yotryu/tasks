@@ -46,6 +46,11 @@ class gapiHelper
 			this.authKey = key;
 			gapi.load('client', this.initializeGapiClient.bind(this));
 		}
+		else
+		{
+			this.isLoading = false;
+			this.loaded = true;
+		}
 	}
 
 	async initializeGapiClient()
@@ -96,7 +101,7 @@ class gapiHelper
 			{
 				localThis.authKey = reader.result.toString();
 				localStorage.setItem("apiKey", localThis.authKey);
-				gapi.load('client', localThis.initializeGapiClient);
+				gapi.load('client', localThis.initializeGapiClient.bind(localThis));
 			}
 		}
 		reader.readAsText(file);
@@ -263,7 +268,7 @@ class gapiHelper
 			return null;
 		}
 
-		let query = `'${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false `;
+		let query = `'${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
 		let response = await this.gapiRequest({
 			'path': `/drive/v3/files`,
 			'params': {

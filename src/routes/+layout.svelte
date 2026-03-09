@@ -38,7 +38,7 @@
 	<!-- Not authenticated yet -->
 	<div class="overlay-darken center-parent">
 		<div class="center-login">
-			{#if !gapiUtils.authKey}
+			{#if !gapiUtils.authKey || gapiUtils.authKey.length == 0}
 				<!-- Need an auth key - very first thing we'll likely see in a new env -->
 				<button class="add-button" onclick={() => proxyClick("chooseAuthKeyFile")}>Load API Key</button>
 				<input id="chooseAuthKeyFile" type="file" accept=".txt" multiple onchange={(evt) => gapiUtils.initWithAuthKeyFile(evt)} style="display:none;"/>
