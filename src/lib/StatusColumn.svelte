@@ -7,12 +7,13 @@
 
 	let preEditTitle = "";
 
-	let { status = $bindable(), cards, onMove, onNewCard, onNewStatus, onEditCard }: {
+	let { status = $bindable(), cards, onMove, onNewCard, onNewStatus, onEditStatus, onEditCard }: {
 		status: StatusData | null,
 		cards: CardMinimalData[],
 		onMove?: (val: number) => void,
 		onNewCard?: () => void,
 		onNewStatus?: () => void,
+		onEditStatus?: (status: StatusData) => void,
 		onEditCard?: (card: CardMinimalData) => void
 	} = $props();
 
@@ -21,9 +22,12 @@
 	let isEditingTitle = $state(false);
 
 	let EditTitle = $derived((title: string) => {
-		if (status && isEditingTitle)
+		if (status && isEditingTitle && title != status.title)
 		{
-			status.title = title;
+			const newData = JSON.parse(JSON.stringify(status));
+			newData.title = title;
+			
+			onEditStatus ? onEditStatus(newData) : {};
 		}
 	});
 
@@ -40,21 +44,22 @@
 
 	function EndTitleEdits(revert: boolean)
 	{
-		if (status && revert)
+		if (revert)
 		{
-			status.title = preEditTitle;
+			EditTitle(preEditTitle);
 		}
 
 		isEditingTitle = false;
 	}
 
-	function HandleTitleEditKeyDown(key: string)
+	function HandleTitleEditKeyDown(evt: KeyboardEvent)
 	{
-		if (key === "Enter")
+		if (evt.key === "Enter")
 		{
-			isEditingTitle = false;
+			EditTitle((<HTMLInputElement>(evt.target)).value);
+			EndTitleEdits(false);
 		}
-		else if (key === "Escape")
+		else if (evt.key === "Escape")
 		{
 			EndTitleEdits(true);
 		}
@@ -66,10 +71,9 @@
 	{#if status}
 		{#if isEditingTitle}
 			<div class="title">
-				<!-- svelte-ignore a11y_autofocus -->
-				<input class="text-input" type="text" id="input-title" bind:value={status.title} use:FocusInput
+				<input class="text-input" type="text" id="input-title" value={status.title} use:FocusInput
 					onchange={(evt) => EditTitle((<HTMLInputElement>(evt.target)).value)}
-					onkeydown={(evt) => HandleTitleEditKeyDown(evt.key)}
+					onkeydown={(evt) => HandleTitleEditKeyDown(evt)}
 					onfocusout={() => EndTitleEdits(false)}/>
 			</div>
 		{:else}

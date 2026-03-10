@@ -28,13 +28,7 @@
 
 {@render children()}
 
-{#if !gapiUtils.loaded}
-	<div class="overlay-darken center-parent">
-		<div class="center-login">
-			<h1 class="title">Loading...</h1>
-		</div>
-	</div>
-{:else if !gapiUtils.authenticated}
+{#if gapiUtils.loaded && !gapiUtils.authenticated}
 	<!-- Not authenticated yet -->
 	<div class="overlay-darken center-parent">
 		<div class="center-login">

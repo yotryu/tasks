@@ -339,14 +339,11 @@ class gapiHelper
 		// check if we can upload
 		let existingFileId = null;
 		
-		if (!force)
+		existingFileId = await this.requestFileId(path);
+		if (!force && existingFileId)
 		{
-			existingFileId = await this.requestFileId(path);
-			if (existingFileId)
-			{
-				// already have a file ID for this path, so do nothing
-				return existingFileId;
-			}
+			// already have a file ID for this path, so do nothing
+			return existingFileId;
 		}
 
 		// get destination folder ID as needed
@@ -359,58 +356,192 @@ class gapiHelper
 			folderId = await this.requestFolderId(folderPath, true);
 		}
 
-		// upload as resumable to provide metadata and support for larger files
-		let metadata = {
-			"name": name,
-			"parents": [ folderId ]
-		};
-		let dataStr = JSON.stringify(metadata);
-
-		// request upload information
-		let response = await this.gapiRequest({
-			'path': '/upload/drive/v3/files?uploadType=resumable',
-			'method': 'POST',
-			'body': dataStr,
-			'headers': {
-			'content-type': "application/json",
-			'content-length': dataStr.length,
-			'x-upload-content-length': buffer.byteLength
-			}
-		});
-		
-		if (!response || !response.headers)
+		if (existingFileId)
 		{
-			return null;
-		}
-
-		// this copy of the data silences typescript errors since the API says the headers object is an array...
-		let headers = JSON.parse(JSON.stringify(response.headers));
-
-		// extract the upload URL we send the data to
-		let uploadURL = headers["location"];
-
-		try
-		{
-			// upload the actual file data now.
-			// this will fail in localhost because of CORS, so for now catch the error and move on
-			// - the request to get the file ID below will kind of validate this anyway... kind of
-			let response = await fetch(uploadURL, {
-				'method': 'PUT',
+			// upload new data only
+			let response = await this.gapiRequest({
+				'path': `/upload/drive/v3/files/${existingFileId}?uploadType=media`,
+				'method': 'PATCH',
 				'body': buffer,
 				'headers': {
-					'content-length': buffer.byteLength.toString()
+					'content-type': "application/octet-stream",
+					'content-length': buffer.byteLength.toString(),
 				}
 			});
-
-			if (!response || !response.ok)
+			
+			if (!response || !response.headers)
 			{
-				// most likely caused by authentication error, so we'll attempt login again
-				this.doLogin();
 				return null;
 			}
 		}
-		catch
-		{}
+		else
+		{
+			// uploading a new file
+			// upload as resumable to provide metadata and support for larger files
+			let metadata = {
+				"name": name,
+				"parents": [ folderId ]
+			};
+			let dataStr = JSON.stringify(metadata);
+	
+			// request upload information
+			let response = await this.gapiRequest({
+				'path': '/upload/drive/v3/files?uploadType=resumable',
+				'method': 'POST',
+				'body': dataStr,
+				'headers': {
+					'content-type': "application/json",
+					'content-length': dataStr.length,
+					'x-upload-content-length': buffer.byteLength
+				}
+			});
+			
+			if (!response || !response.headers)
+			{
+				return null;
+			}
+	
+			// this copy of the data silences typescript errors since the API says the headers object is an array...
+			let headers = JSON.parse(JSON.stringify(response.headers));
+	
+			// extract the upload URL we send the data to
+			let uploadURL = headers["location"];
+	
+			try
+			{
+				// upload the actual file data now.
+				// this will fail in localhost because of CORS, so for now catch the error and move on
+				// - the request to get the file ID below will kind of validate this anyway... kind of
+				let response = await fetch(uploadURL, {
+					'method': 'PUT',
+					'body': buffer,
+					'headers': {
+						'content-length': buffer.byteLength.toString()
+					}
+				});
+	
+				if (!response || !response.ok)
+				{
+					// most likely caused by authentication error, so we'll attempt login again
+					this.doLogin();
+					return null;
+				}
+			}
+			catch
+			{}
+		}
+
+
+		// finally grab the file ID of the newly created file, and validate it is available
+		existingFileId = await this.requestFileId(path);
+
+		return existingFileId;
+	}
+
+	// Generic wrapper function for uploading a json object to a given path.
+	// uploadFile should technically be able to do this, but API silliness means this is the path of least resistance.
+	// Optionally provided folderId simply speeds up the process by not needing to get the folder ID each time.
+	// Returns the gdrive file ID of the uploaded file.
+	async uploadJsonObject(path: string, folderId: string | null, obj: object, force: boolean = false)
+	{
+		// check if we can upload
+		let existingFileId = null;
+		
+		existingFileId = await this.requestFileId(path);
+		if (!force && existingFileId)
+		{
+			// already have a file ID for this path, so do nothing
+			return existingFileId;
+		}
+
+		// get destination folder ID as needed
+		let comps = path.split('/');
+		let name = comps[comps.length - 1];
+
+		if (!folderId)
+		{
+			let folderPath = comps.slice(0, -1).join('/');
+			folderId = await this.requestFolderId(folderPath, true);
+		}
+
+		const objJson = JSON.stringify(obj);
+
+		if (existingFileId)
+		{
+			// upload new data only
+			let response = await this.gapiRequest({
+				'path': `/upload/drive/v3/files/${existingFileId}?uploadType=media`,
+				'method': 'PATCH',
+				'body': objJson,
+				'headers': {
+					'content-type': "application/json",
+					'content-length': objJson.length.toString(),
+				}
+			});
+			
+			if (!response || !response.headers)
+			{
+				return null;
+			}
+		}
+		else
+		{
+			// uploading a new file
+			// upload as resumable to provide metadata and support for larger files
+			let metadata = {
+				"name": name,
+				"parents": [ folderId ]
+			};
+			let dataStr = JSON.stringify(metadata);
+	
+			// request upload information
+			let response = await this.gapiRequest({
+				'path': '/upload/drive/v3/files?uploadType=resumable',
+				'method': 'POST',
+				'body': dataStr,
+				'headers': {
+					'content-type': "application/json",
+					'content-length': dataStr.length,
+					'x-upload-content-length': objJson.length
+				}
+			});
+			
+			if (!response || !response.headers)
+			{
+				return null;
+			}
+	
+			// this copy of the data silences typescript errors since the API says the headers object is an array...
+			let headers = JSON.parse(JSON.stringify(response.headers));
+	
+			// extract the upload URL we send the data to
+			let uploadURL = headers["location"];
+	
+			try
+			{
+				// upload the actual file data now.
+				// this will fail in localhost because of CORS, so for now catch the error and move on
+				// - the request to get the file ID below will kind of validate this anyway... kind of
+				let response = await fetch(uploadURL, {
+					'method': 'PUT',
+					'body': objJson,
+					'headers': {
+						'content-type': "application/json",
+						'content-length': objJson.length.toString()
+					}
+				});
+	
+				if (!response || !response.ok)
+				{
+					// most likely caused by authentication error, so we'll attempt login again
+					this.doLogin();
+					return null;
+				}
+			}
+			catch
+			{}
+		}
+
 
 		// finally grab the file ID of the newly created file, and validate it is available
 		existingFileId = await this.requestFileId(path);
@@ -473,11 +604,9 @@ class gapiHelper
 	{
 		// prepare json upload
 		// only do json upload if all good up to this point
-		let json = JSON.stringify(obj);
-		let encoder = new TextEncoder();
 
 		// do json upload
-		return await this.uploadFile(path, null, encoder.encode(json), true);
+		return await this.uploadJsonObject(path, null, obj, true);
 	}
 
 	async UploadBoardJson(data: BoardSaveData)
@@ -490,7 +619,7 @@ class gapiHelper
 
 		this.isSaving = true;
 
-		const fileId = await this.UploadObjectAsJson(JSON.parse(JSON.stringify(data)), `${BoardsPath}/${data.board.id}/${data.board.id}.json`);
+		const fileId = await this.UploadObjectAsJson(data, `${BoardsPath}/${data.board.id}/${data.board.id}.json`);
 
 		this.isSaving = false;
 

@@ -73,6 +73,17 @@
 		workingData.cards[index] = card;
 		gapiUtils.UploadBoardJson(workingData);
 	});
+	
+	let UpdateStatus = $derived((status: StatusData) => {
+		const index = workingData.statuses.findIndex(c => c.id == status.id);
+		if (index < 0)
+		{
+			return;
+		}
+
+		workingData.statuses[index] = status;
+		gapiUtils.UploadBoardJson(workingData);
+	});
 
 
 	async function TryGetActiveBoardData()
@@ -104,12 +115,14 @@
 	{#if !activeBoardId}
 		<div>No board selected - nothing to display</div>
 	{:else if workingData && workingData.board.id}
+		<h3 class="title">{workingData.board.title}</h3>
 		<div class="columns-container">
-			{#each workingData.statuses as status, index}
+			{#each workingData.statuses as status}
 				<StatusColumn 
-					bind:status={workingData.statuses[index]} 
+					status={status} 
 					cards={workingData.cards.filter(c => c.status == status.id)} 
 					onMove={(val) => MoveStatus(status.id, val)}
+					onEditStatus={(status) => UpdateStatus(status)}
 					onNewCard={() => NewCard(status.id)}
 					onEditCard={(card) => UpdateCard(card)}/>
 			{/each}
@@ -120,6 +133,10 @@
 		<div>Loading board data...</div>
 	{/if}
 {/if}
+
+<div class="saving-toast {gapiUtils.isSaving ? "visible" : "hidden"}">
+	Saving...
+</div>
 
 
 <style>
@@ -136,7 +153,33 @@
 		font-family: Exo2-Regular;
 	}
 
+	.title {
+		font-family: Exo2-Regular;
+		margin-top: 0;
+		margin-bottom: 0.5em;
+	}
+
 	.columns-container {
 		display: inline-flex;
+	}
+
+	.saving-toast {
+		color: azure;
+		position: fixed;
+		right: 0;
+		bottom: 0;
+		margin: 1em;
+		padding: 0.5em 1em;
+		transition: all 0.3s ease;
+		background-color: #000A;
+		border-radius: 12px;
+	}
+
+	.visible {
+		opacity: 1;
+	}
+
+	.hidden {
+		opacity: 0;
 	}
 </style>
