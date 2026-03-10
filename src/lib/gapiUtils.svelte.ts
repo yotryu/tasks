@@ -61,6 +61,20 @@ class gapiHelper
 
 		const localThis = this;
 
+		const existingToken = localStorage.getItem("authToken");
+		if (existingToken)
+		{
+			try
+			{
+				await gapi.client.setToken(JSON.parse(existingToken));
+				localThis.authenticated = true;
+			}
+			catch
+			{
+				// token is probably expired or otherwise invalid, so we're not authenticated yet
+			}
+		}
+		
 		// google is loaded dynamically, and attempts to include the client library resulted in failures,
 		// so disabling the error for now as it is an offline only issue.
 		// eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -75,6 +89,7 @@ class gapiHelper
 				}
 
 				localThis.authenticated = true;
+				localStorage.setItem("authToken", JSON.stringify(resp));
 			}
 		});
 
