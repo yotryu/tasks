@@ -4,9 +4,10 @@
 
 	let preEditTitle = "";
 
-	let { data, onEditCard }: {
-		data: CardMinimalData,
-		onEditCard?: (card: CardMinimalData) => void
+	let { data, onEditCard, onDragStart }: {
+		data: CardMinimalData | undefined,
+		onEditCard?: (card: CardMinimalData) => void,
+		onDragStart?: (id: number, evt: MouseEvent) => void
 	} = $props();
 
 	let isHovering = $state(false);
@@ -28,7 +29,7 @@
 
 	function StartEditingTitle()
 	{
-		preEditTitle = data.title;
+		preEditTitle = data?.title ?? "";
 		isEditingTitle = true;
 	}
 
@@ -54,22 +55,28 @@
 			EndTitleEdits(true);
 		}
 	}
+
+	function OnMouseDown(evt: MouseEvent)
+	{
+		onDragStart ? onDragStart(data?.id ?? -1, evt) : {};
+	}
 </script>
 
 
 <div class="card" role="toolbar" tabindex="0"
-	onmouseenter={() => isHovering = true} onmouseleave={() => isHovering = false}>
+	onmouseenter={() => isHovering = true} onmouseleave={() => isHovering = false}
+	onmousedown={(evt) => OnMouseDown(evt)}>
 	<div>
 		{#if isEditingTitle}
 			<div class="title">
 				<!-- svelte-ignore a11y_autofocus -->
-				<input class="text-input" type="text" id="input-title" value={data.title} use:FocusInput
+				<input class="text-input" type="text" id="input-title" value={data?.title} use:FocusInput
 					onchange={(evt) => EditTitle((<HTMLInputElement>(evt.target)).value)}
 					onkeydown={(evt) => HandleTitleEditKeyDown(evt)}
 					onfocusout={() => EndTitleEdits(false)}/>
 			</div>
 		{:else}
-			<span>{data.title}</span>
+			<span>{data?.title}</span>
 		{/if}
 	</div>
 
@@ -80,6 +87,7 @@
 			</button>
 		</div>
 	{/if}
+
 </div>
 
 

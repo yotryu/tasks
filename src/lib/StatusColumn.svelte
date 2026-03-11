@@ -4,22 +4,30 @@
 	import ChevronLeft from "$lib/assets/chevron-left.svg";
 	import ChevronRight from "$lib/assets/chevron-right.svg";
 	import Pencil from "$lib/assets/pencil.svg";
+    import Spacer from "./Spacer.svelte";
 
 	let preEditTitle = "";
 
-	let { status = $bindable(), cards, onMove, onNewCard, onNewStatus, onEditStatus, onEditCard }: {
+	let { status = $bindable(), cards, draggingCard, onMove, onHoverChange, onNewCard, onNewStatus, onEditStatus, onEditCard, onCardDragStart, onSpacerHoverChange }: {
 		status: StatusData | null,
 		cards: CardMinimalData[],
+		draggingCard?: number,
 		onMove?: (val: number) => void,
+		onHoverChange?: (isHovering: boolean, statusId: number) => void
 		onNewCard?: () => void,
 		onNewStatus?: () => void,
 		onEditStatus?: (status: StatusData) => void,
-		onEditCard?: (card: CardMinimalData) => void
+		onEditCard?: (card: CardMinimalData) => void,
+		onCardDragStart?: (cardId: number, evt: MouseEvent) => void,
+		onSpacerHoverChange?: (isHovering: boolean, index: number) => void,
 	} = $props();
 
 	let columnClass = $derived(status ? "column" : "column-fit-content");
+	let isDraggingCardInThis = $derived(draggingCard && draggingCard >= 0 && cards.findIndex(c => c.id == draggingCard) >= 0);
 
 	let isEditingTitle = $state(false);
+	let isHovering = $state(false);
+	let hoveringSpacer = $state(-1);
 
 	let EditTitle = $derived((title: string) => {
 		if (status && isEditingTitle && title != status.title)
@@ -34,6 +42,12 @@
 	function FocusInput(element: HTMLInputElement)
 	{
 		element.focus();
+	}
+
+	function SetIsHovering(flag: boolean)
+	{
+		isHovering = flag;
+		onHoverChange ? onHoverChange(isHovering, status?.id ?? -1) : {};
 	}
 
 	function StartEditingTitle()
@@ -67,7 +81,8 @@
 </script>
 
 
-<div class={columnClass}>
+<div class={columnClass} role="toolbar" tabindex="0"
+	onmouseenter={() => SetIsHovering(true)} onmouseleave={() => SetIsHovering(false)}>
 	{#if status}
 		{#if isEditingTitle}
 			<div class="title">
@@ -80,9 +95,10 @@
 			<div class="title">{status.title}</div>
 		{/if}
 
-		{#each cards as card}
-			<Card data={card} onEditCard={onEditCard}/>
-			<div class="spacer"></div>
+		<Spacer index={0} showHover={isDraggingCardInThis ? isDraggingCardInThis : false} onHoverChange={onSpacerHoverChange}/>
+		{#each cards as card, index}
+			<Card data={card} onEditCard={onEditCard} onDragStart={onCardDragStart}/>
+			<Spacer index={index + 1} showHover={isDraggingCardInThis ? isDraggingCardInThis : false} onHoverChange={onSpacerHoverChange}/>
 		{/each}
 
 		{#if !isEditingTitle}
@@ -105,6 +121,12 @@
 	{:else}
 		<div class="span-button">
 			<button class="basic-button" onclick={() => onNewStatus?.call(null)}>Add New Status</button>
+		</div>
+	{/if}
+
+	{#if isHovering && draggingCard && draggingCard >= 0 && !isDraggingCardInThis}
+		<div class="overlay dotted-border">
+			<div class="center-text">Move here</div>
 		</div>
 	{/if}
 </div>
@@ -136,6 +158,27 @@
 
 	.column-fit-content {
 		height: 100%;
+	}
+
+	.overlay {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+	}
+
+	.dotted-border {
+		border: 4px dotted #000A;
+		background-color: #CCCC;
+		border-radius: 12px;
+		display: flex;
+	}
+
+	.center-text {
+		text-align: center;
+		vertical-align: middle;
+		margin: auto;
 	}
 
 	.title, .title-disabled {
